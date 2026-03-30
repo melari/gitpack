@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-gitpack_url="https://gitpack.htlc.io"
-
 cmd_help() {
   echo "Usage: gitpack <command>"
   echo ""
@@ -26,7 +24,7 @@ ensure_gitpack_installed() {
 
   # Copy gitpack itself if not already installed
   if [[ ! -f "$bin_dir/gitpack" ]]; then
-    curl
+
   fi
 }
 

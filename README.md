@@ -1,6 +1,6 @@
 # gitpack
 
-`gitpack` is a utility that other applications can use to provide one-click installs and auto-update functionality. The core premise is that `gitpack` based applications are installed and updated simply by pulling a git repository. `gitpack` manages the entire repository lifecycle:
+`gitpack` is a utility that other applications can use to provide one-line installs and auto-update functionality. The core premise is that `gitpack` based applications are installed and updated simply by pulling a git repository. `gitpack` manages the entire repository lifecycle:
 
 - clones the repo and installs the application
 - keeps the local copy of the repo updated and re-triggers the applications setup scripts as needed
@@ -21,7 +21,7 @@ The executable defined by `setup` should be idempotent. It will be run both on i
 
 The executable defined by `entrypoint` will be symlinked into `~/.local/bin/<name>` (where name also comes from the config file), to make your application available to your users.
 
-## Creating a One-Click Install Command
+## Creating a One-Line Install Command
 
 There are two options for creating an install script for a `gitpack` based application:
 
@@ -29,19 +29,17 @@ There are two options for creating an install script for a `gitpack` based appli
 
 This method uses an official hosted copy of `gitpack` to handle the install. Simply replace `[Git URL]` with the URL of your projects repository, and this command as-is will install it:
 
-`curl -fsSL https://gitpack.htlc.io | sh -s -- install [Git URL]`
+`curl -fsSL https://gitpack.htlc.io | sh -s -- install <git url>`
 
 ### Option 2: Vendored hosting (more secure)
 
-If you don't want to trust the official hosted copy of gitpack, you can easily vendor it yourself in a variety of ways: 
-- fork this repo
-- clone this repo as a submodule
-- download the raw `gitpack` file
+If you don't want to trust the official hosted copy of gitpack, you can easily vendor it yourself with a few extra steps:
 
-Regardless of the method you choose, you just need to make gitpack available at a public URL. From there, the one-click install command takes the form:
+1. Download a copy of gitpack from this repository and choose a URL you will host it at.
+2. Open `gitpack` and modify the `gitpack_url` at the top of the file to match your chosen URL.
+3. Host your modified gitpack file at your chosen URL
 
-`curl -fsSL [vendored gitpack url] | sh -s -- install [Git URL]`
+Your single-line install command is then:
 
-Make sure to configure the above command by replacing the content in square brackets:
-- `[vendored gitpack url]` is the public URL that hosts gitpack.
-- `[Git URL]` is the public git repo where your project can be cloned from.
+`curl -fsSL <your URL> | sh -s -- install <git url>`
+

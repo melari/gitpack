@@ -21,12 +21,38 @@ ensure_gitpack_installed() {
 
   # Ensure ~/.local/bin is in PATH
   if [[ ":$PATH:" != *":$bin_dir:"* ]]; then
-    echo "Warning: $bin_dir is not in your PATH. Add it to your shell config."
+    echo "Warning: $bin_dir is not in your PATH."
+
+    # Detect the appropriate dotfile for the user's shell
+    local shell_name dotfile
+    shell_name="$(basename "$SHELL")"
+    case "$shell_name" in
+      zsh)  dotfile="$HOME/.zshrc" ;;
+      bash) dotfile="$HOME/.bashrc" ;;
+      fish) dotfile="$HOME/.config/fish/config.fish" ;;
+      ksh)  dotfile="$HOME/.kshrc" ;;
+      *)    dotfile="" ;;
+    esac
+
+    if [[ -n "$dotfile" ]]; then
+      read -r -p "Add $bin_dir to PATH in $dotfile? [y/N] " answer
+      if [[ "$answer" =~ ^[Yy]$ ]]; then
+        if [[ "$shell_name" == "fish" ]]; then
+          echo "fish_add_path $bin_dir" >> "$dotfile"
+        else
+          echo "export PATH=\"$bin_dir:\$PATH\"" >> "$dotfile"
+        fi
+        echo "Added. Restart your shell or run: source $dotfile"
+      fi
+    else
+      echo "Could not detect your shell config file. Add $bin_dir to your PATH manually."
+    fi
   fi
 
   # Copy gitpack itself if not already installed
   if [[ ! -f "$bin_dir/gitpack" ]]; then
-    curl
+    curl -fsSL "$gitpack_url/gitpack" -o "$bin_dir/gitpack"
+    chmod +x "$bin_dir/gitpack"
   fi
 }
 

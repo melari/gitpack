@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 gitpack_url="https://gitpack.htlc.io"
+bin_dir="$HOME/.local/bin"
 
 cmd_help() {
   echo "Usage: gitpack <command>"
@@ -14,8 +15,6 @@ cmd_help() {
 }
 
 ensure_gitpack_installed() {
-  local bin_dir="$HOME/.local/bin"
-
   # Ensure ~/.local/bin exists
   mkdir -p "$bin_dir"
 
@@ -27,20 +26,20 @@ ensure_gitpack_installed() {
     local shell_name dotfile
     shell_name="$(basename "$SHELL")"
     case "$shell_name" in
-      zsh)  dotfile="$HOME/.zshrc" ;;
-      bash) dotfile="$HOME/.bashrc" ;;
-      fish) dotfile="$HOME/.config/fish/config.fish" ;;
-      ksh)  dotfile="$HOME/.kshrc" ;;
-      *)    dotfile="" ;;
+    zsh) dotfile="$HOME/.zshrc" ;;
+    bash) dotfile="$HOME/.bashrc" ;;
+    fish) dotfile="$HOME/.config/fish/config.fish" ;;
+    ksh) dotfile="$HOME/.kshrc" ;;
+    *) dotfile="" ;;
     esac
 
     if [[ -n "$dotfile" ]]; then
       read -r -p "Add $bin_dir to PATH in $dotfile? [y/N] " answer
       if [[ "$answer" =~ ^[Yy]$ ]]; then
         if [[ "$shell_name" == "fish" ]]; then
-          echo "fish_add_path $bin_dir" >> "$dotfile"
+          echo "fish_add_path $bin_dir" >>"$dotfile"
         else
-          echo "export PATH=\"$bin_dir:\$PATH\"" >> "$dotfile"
+          echo "export PATH=\"$bin_dir:\$PATH\"" >>"$dotfile"
         fi
         echo "Added. Restart your shell or run: source $dotfile"
       fi
@@ -72,7 +71,11 @@ cmd_run() {
 }
 
 cmd_update() {
-  echo "cmd_update"
+  local target="$bin_dir/gitpack"
+  echo "Updating gitpack..."
+  curl -fsSL "$gitpack_url/gitpack" -o "$target"
+  chmod +x "$target"
+  echo "gitpack updated."
 }
 
 case "$1" in

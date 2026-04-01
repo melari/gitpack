@@ -180,9 +180,10 @@ cmd_run() {
     echo "[📦 gitpack] Update for $app_name is available. Fetching..."
     echo ""
 
-    git -C "$install_dir" merge --ff-only
+    if ! git -C "$install_dir" merge --ff-only --quiet; then
+      echo "Warning: Could not fast-forward $app_name. Skipping update."
+    fi
 
-    local config_file="$install_dir/.gitpack.yml"
     local setup
     setup="$(parse_yml_field setup "$config_file")"
     if [[ -n "$setup" ]]; then

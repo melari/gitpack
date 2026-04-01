@@ -170,6 +170,8 @@ cmd_run() {
     exit 1
   fi
 
+  local config_file="$install_dir/.gitpack.yml"
+
   # Fetch remote and check if we're behind before attempting a merge
   git -C "$install_dir" fetch origin --quiet
   local local_rev remote_rev
@@ -195,7 +197,6 @@ cmd_run() {
     fi
   fi
 
-  local config_file="$install_dir/.gitpack.yml"
   local entrypoint
   entrypoint="$(parse_yml_field entrypoint "$config_file")"
 

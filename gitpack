@@ -215,10 +215,18 @@ cmd_run() {
 
 cmd_update() {
   local target="$bin_dir/gitpack"
+  local tmp
+  tmp="$(mktemp)"
   echo "Updating gitpack..."
-  curl -fsSL "$gitpack_url/gitpack" -o "$target"
-  chmod +x "$target"
-  echo "gitpack updated."
+  if curl -fsSL "$gitpack_url/gitpack" -o "$tmp"; then
+    chmod +x "$tmp"
+    mv "$tmp" "$target"
+    echo "gitpack updated."
+  else
+    rm -f "$tmp"
+    echo "Error: Failed to download update."
+    exit 1
+  fi
 }
 
 case "$1" in

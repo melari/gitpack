@@ -55,19 +55,158 @@ ensure_gitpack_installed() {
   fi
 }
 
+parse_yml_field() {
+  local field="$1" file="$2"
+  grep "^${field}:" "$file" |
+    sed "s/^${field}:[[:space:]]*//" |
+    sed 's/[[:space:]]*#.*//' |
+    tr -d "\"'"
+}
+
 cmd_install() {
   ensure_gitpack_installed
-  # clones the project repo
-  # generates a file in .local/bin that calls gitpack run [app]
-  echo "cmd_install: $1"
+
+  local git_url="$1"
+  if [[ -z "$git_url" ]]; then
+    echo "Usage: gitpack install <git-url>"
+    exit 1
+  fi
+
+  local tmp_dir
+  tmp_dir="$(mktemp -d)"
+
+  echo "Cloning $git_url..."
+  if ! git clone "$git_url" "$tmp_dir"; then
+    rm -rf "$tmp_dir"
+    echo "Error: Failed to clone repository."
+    exit 1
+  fi
+
+  local config_file="$tmp_dir/.gitpack.yml"
+  if [[ ! -f "$config_file" ]]; then
+    rm -rf "$tmp_dir"
+    echo "Error: Not a valid gitpack package (missing .gitpack.yml)."
+    exit 1
+  fi
+
+  local app_name entrypoint setup
+  app_name="$(parse_yml_field name "$config_file")"
+  entrypoint="$(parse_yml_field entrypoint "$config_file")"
+  setup="$(parse_yml_field setup "$config_file")"
+
+  if [[ -z "$app_name" ]]; then
+    rm -rf "$tmp_dir"
+    echo "Error: .gitpack.yml is missing required field: name"
+    exit 1
+  fi
+
+  if [[ -z "$entrypoint" ]]; then
+    rm -rf "$tmp_dir"
+    echo "Error: .gitpack.yml is missing required field: entrypoint"
+    exit 1
+  fi
+
+  local install_dir="$HOME/.local/share/gitpack/$app_name"
+  if [[ -d "$install_dir" ]]; then
+    rm -rf "$tmp_dir"
+    echo "Error: '$app_name' is already installed. Use 'gitpack remove $app_name' first."
+    exit 1
+  fi
+
+  mkdir -p "$(dirname "$install_dir")"
+  mv "$tmp_dir" "$install_dir"
+
+  # Write a launcher script that delegates to `gitpack run`
+  local launcher="$bin_dir/$app_name"
+  printf '#!/bin/sh\nexec gitpack run %s "$@"\n' "$app_name" >"$launcher"
+  chmod +x "$launcher"
+
+  if [[ -n "$setup" ]]; then
+    local setup_path="$install_dir/$setup"
+    if [[ -f "$setup_path" ]]; then
+      echo "Running setup..."
+      chmod +x "$setup_path"
+      "$setup_path"
+    else
+      echo "Warning: setup script '$setup' not found in repository."
+    fi
+  fi
+
+  echo "$app_name installed successfully."
 }
 
 cmd_remove() {
-  echo "cmd_remove: $1"
+  local app_name="$1"
+
+  if [[ -z "$app_name" ]]; then
+    echo "Usage: gitpack remove <app>"
+    exit 1
+  fi
+
+  local install_dir="$HOME/.local/share/gitpack/$app_name"
+  if [[ ! -d "$install_dir" ]]; then
+    echo "Error: '$app_name' is not installed."
+    exit 1
+  fi
+
+  rm -rf "$install_dir"
+  rm -f "$bin_dir/$app_name"
+  echo "$app_name removed."
 }
 
 cmd_run() {
-  echo "cmd_run: $1"
+  local app_name="$1"
+  shift
+
+  if [[ -z "$app_name" ]]; then
+    echo "Usage: gitpack run <app>"
+    exit 1
+  fi
+
+  local install_dir="$HOME/.local/share/gitpack/$app_name"
+  if [[ ! -d "$install_dir" ]]; then
+    echo "Error: '$app_name' is not installed."
+    exit 1
+  fi
+
+  # Fetch remote and check if we're behind before attempting a merge
+  git -C "$install_dir" fetch origin --quiet
+  local local_rev remote_rev
+  local_rev="$(git -C "$install_dir" rev-parse HEAD)"
+  remote_rev="$(git -C "$install_dir" rev-parse @{u} 2>/dev/null)"
+
+  if [[ -n "$remote_rev" && "$local_rev" != "$remote_rev" ]]; then
+    git -C "$install_dir" merge --ff-only --quiet
+
+    local config_file="$install_dir/.gitpack.yml"
+    local setup
+    setup="$(parse_yml_field setup "$config_file")"
+    if [[ -n "$setup" ]]; then
+      local setup_path="$install_dir/$setup"
+      if [[ -f "$setup_path" ]]; then
+        chmod +x "$setup_path"
+        "$setup_path"
+      fi
+    fi
+  fi
+
+  local config_file="$install_dir/.gitpack.yml"
+  local entrypoint
+  entrypoint="$(parse_yml_field entrypoint "$config_file")"
+
+  if [[ -z "$entrypoint" ]]; then
+    echo "Error: .gitpack.yml is missing required field: entrypoint"
+    exit 1
+  fi
+
+  local entrypoint_path="$install_dir/$entrypoint"
+  if [[ ! -f "$entrypoint_path" ]]; then
+    echo "Error: entrypoint '$entrypoint' not found in repository."
+    exit 1
+  fi
+
+  chmod +x "$entrypoint_path"
+  exec "$entrypoint_path" "$@"
 }
 
 cmd_update() {
@@ -82,7 +221,7 @@ case "$1" in
 help) cmd_help ;;
 install) cmd_install "$2" ;;
 remove) cmd_remove "$2" ;;
-run) cmd_run "$2" ;;
+run) cmd_run "${@:2}" ;;
 update) cmd_update ;;
 *)
   echo "Unknown command: $1"

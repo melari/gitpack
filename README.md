@@ -19,7 +19,7 @@ setup: bin/setup.sh         # A setup script to install dependencies
 
 The executable defined by `setup` should be idempotent. It will be run both on initial install, but also any time the application is self-updated.
 
-The executable defined by `entrypoint` will be symlinked into `~/.local/bin/<name>` (where name also comes from the config file), to make your application available to your users.
+The executable defined by `entrypoint` will be added to your users' PATH under the `name` specified in the config file.
 
 ## Creating a One-Line Install Command
 

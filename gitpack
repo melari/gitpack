@@ -35,10 +35,11 @@ ensure_gitpack_installed() {
     esac
 
     if [ -n "$dotfile" ] && [ -e /dev/tty ]; then
-      printf "Add %s to PATH in %s? [y/N] " "$bin_dir" "$dotfile"
+      printf "Add %s to PATH in %s? [Y/n] " "$bin_dir" "$dotfile"
       read -r answer </dev/tty
       case "$answer" in
-      [Yy]*)
+      [Nn]*) ;;
+      *)
         if [ "$shell_name" = "fish" ]; then
           echo "fish_add_path $bin_dir" >>"$dotfile"
         else

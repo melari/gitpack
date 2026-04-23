@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/sh
 
 gitpack_url="https://gitpack.htlc.io"
 bin_dir="$HOME/.local/bin"
@@ -19,11 +19,12 @@ ensure_gitpack_installed() {
   mkdir -p "$bin_dir"
 
   # Ensure ~/.local/bin is in PATH
-  if [[ ":$PATH:" != *":$bin_dir:"* ]]; then
+  case ":$PATH:" in
+  *":$bin_dir:"*) ;;
+  *)
     echo "Warning: $bin_dir is not in your PATH."
 
     # Detect the appropriate dotfile for the user's shell
-    local shell_name dotfile
     shell_name="$(basename "$SHELL")"
     case "$shell_name" in
     zsh) dotfile="$HOME/.zshrc" ;;
@@ -33,30 +34,34 @@ ensure_gitpack_installed() {
     *) dotfile="" ;;
     esac
 
-    if [[ -n "$dotfile" ]]; then
-      read -r -p "Add $bin_dir to PATH in $dotfile? [y/N] " answer
-      if [[ "$answer" =~ ^[Yy]$ ]]; then
-        if [[ "$shell_name" == "fish" ]]; then
+    if [ -n "$dotfile" ]; then
+      printf "Add %s to PATH in %s? [y/N] " "$bin_dir" "$dotfile"
+      read -r answer
+      case "$answer" in
+      [Yy]*)
+        if [ "$shell_name" = "fish" ]; then
           echo "fish_add_path $bin_dir" >>"$dotfile"
         else
           echo "export PATH=\"$bin_dir:\$PATH\"" >>"$dotfile"
         fi
         echo "Added. Restart your shell or run: source $dotfile"
-      fi
+        ;;
+      esac
     else
       echo "Could not detect your shell config file. Add $bin_dir to your PATH manually."
     fi
-  fi
+    ;;
+  esac
 
   # Copy gitpack itself if not already installed
-  if [[ ! -f "$bin_dir/gitpack" ]]; then
+  if [ ! -f "$bin_dir/gitpack" ]; then
     curl -fsSL "$gitpack_url/gitpack" -o "$bin_dir/gitpack"
     chmod +x "$bin_dir/gitpack"
   fi
 }
 
 parse_yml_field() {
-  local field="$1" file="$2"
+  field="$1" file="$2"
   grep "^${field}:" "$file" |
     sed "s/^${field}:[[:space:]]*//" |
     sed 's/[[:space:]]*#.*//' |
@@ -66,13 +71,12 @@ parse_yml_field() {
 cmd_install() {
   ensure_gitpack_installed
 
-  local git_url="$1"
-  if [[ -z "$git_url" ]]; then
+  git_url="$1"
+  if [ -z "$git_url" ]; then
     echo "Usage: gitpack install <git-url>"
     exit 1
   fi
 
-  local tmp_dir
   tmp_dir="$(mktemp -d)"
 
   echo "Cloning $git_url..."
@@ -82,32 +86,31 @@ cmd_install() {
     exit 1
   fi
 
-  local config_file="$tmp_dir/.gitpack.yml"
-  if [[ ! -f "$config_file" ]]; then
+  config_file="$tmp_dir/.gitpack.yml"
+  if [ ! -f "$config_file" ]; then
     rm -rf "$tmp_dir"
     echo "Error: Not a valid gitpack package (missing .gitpack.yml)."
     exit 1
   fi
 
-  local app_name entrypoint setup
   app_name="$(parse_yml_field name "$config_file")"
   entrypoint="$(parse_yml_field entrypoint "$config_file")"
   setup="$(parse_yml_field setup "$config_file")"
 
-  if [[ -z "$app_name" ]]; then
+  if [ -z "$app_name" ]; then
     rm -rf "$tmp_dir"
     echo "Error: .gitpack.yml is missing required field: name"
     exit 1
   fi
 
-  if [[ -z "$entrypoint" ]]; then
+  if [ -z "$entrypoint" ]; then
     rm -rf "$tmp_dir"
     echo "Error: .gitpack.yml is missing required field: entrypoint"
     exit 1
   fi
 
-  local install_dir="$HOME/.local/share/gitpack/$app_name"
-  if [[ -d "$install_dir" ]]; then
+  install_dir="$HOME/.local/share/gitpack/$app_name"
+  if [ -d "$install_dir" ]; then
     rm -rf "$tmp_dir"
     echo "Error: '$app_name' is already installed. Use 'gitpack remove $app_name' first."
     exit 1
@@ -117,13 +120,13 @@ cmd_install() {
   mv "$tmp_dir" "$install_dir"
 
   # Write a launcher script that delegates to `gitpack run`
-  local launcher="$bin_dir/$app_name"
+  launcher="$bin_dir/$app_name"
   printf '#!/bin/sh\nexec gitpack run %s "$@"\n' "$app_name" >"$launcher"
   chmod +x "$launcher"
 
-  if [[ -n "$setup" ]]; then
-    local setup_path="$install_dir/$setup"
-    if [[ -f "$setup_path" ]]; then
+  if [ -n "$setup" ]; then
+    setup_path="$install_dir/$setup"
+    if [ -f "$setup_path" ]; then
       echo "Running setup..."
       chmod +x "$setup_path"
       "$setup_path"
@@ -137,15 +140,15 @@ cmd_install() {
 }
 
 cmd_remove() {
-  local app_name="$1"
+  app_name="$1"
 
-  if [[ -z "$app_name" ]]; then
+  if [ -z "$app_name" ]; then
     echo "Usage: gitpack remove <app>"
     exit 1
   fi
 
-  local install_dir="$HOME/.local/share/gitpack/$app_name"
-  if [[ ! -d "$install_dir" ]]; then
+  install_dir="$HOME/.local/share/gitpack/$app_name"
+  if [ ! -d "$install_dir" ]; then
     echo "Error: '$app_name' is not installed."
     exit 1
   fi
@@ -156,29 +159,28 @@ cmd_remove() {
 }
 
 cmd_run() {
-  local app_name="$1"
+  app_name="$1"
   shift
 
-  if [[ -z "$app_name" ]]; then
+  if [ -z "$app_name" ]; then
     echo "Usage: gitpack run <app>"
     exit 1
   fi
 
-  local install_dir="$HOME/.local/share/gitpack/$app_name"
-  if [[ ! -d "$install_dir" ]]; then
+  install_dir="$HOME/.local/share/gitpack/$app_name"
+  if [ ! -d "$install_dir" ]; then
     echo "Error: '$app_name' is not installed."
     exit 1
   fi
 
-  local config_file="$install_dir/.gitpack.yml"
+  config_file="$install_dir/.gitpack.yml"
 
   # Fetch remote and check if we're behind before attempting a merge
   git -C "$install_dir" fetch origin --quiet
-  local local_rev remote_rev
   local_rev="$(git -C "$install_dir" rev-parse HEAD)"
   remote_rev="$(git -C "$install_dir" rev-parse @{u} 2>/dev/null)"
 
-  if [[ -n "$remote_rev" && "$local_rev" != "$remote_rev" ]]; then
+  if [ -n "$remote_rev" ] && [ "$local_rev" != "$remote_rev" ]; then
     echo "[📦 gitpack] Update for $app_name is available. Fetching..."
     echo ""
 
@@ -186,27 +188,25 @@ cmd_run() {
       echo "Warning: Could not fast-forward $app_name. Skipping update."
     fi
 
-    local setup
     setup="$(parse_yml_field setup "$config_file")"
-    if [[ -n "$setup" ]]; then
-      local setup_path="$install_dir/$setup"
-      if [[ -f "$setup_path" ]]; then
+    if [ -n "$setup" ]; then
+      setup_path="$install_dir/$setup"
+      if [ -f "$setup_path" ]; then
         chmod +x "$setup_path"
         "$setup_path"
       fi
     fi
   fi
 
-  local entrypoint
   entrypoint="$(parse_yml_field entrypoint "$config_file")"
 
-  if [[ -z "$entrypoint" ]]; then
+  if [ -z "$entrypoint" ]; then
     echo "Error: .gitpack.yml is missing required field: entrypoint"
     exit 1
   fi
 
-  local entrypoint_path="$install_dir/$entrypoint"
-  if [[ ! -f "$entrypoint_path" ]]; then
+  entrypoint_path="$install_dir/$entrypoint"
+  if [ ! -f "$entrypoint_path" ]; then
     echo "Error: entrypoint '$entrypoint' not found in repository."
     exit 1
   fi
@@ -216,8 +216,7 @@ cmd_run() {
 }
 
 cmd_update() {
-  local target="$bin_dir/gitpack"
-  local tmp
+  target="$bin_dir/gitpack"
   tmp="$(mktemp)"
   echo "Updating gitpack..."
   if curl -fsSL "$gitpack_url/gitpack" -o "$tmp"; then
@@ -235,7 +234,7 @@ case "$1" in
 help) cmd_help ;;
 install) cmd_install "$2" ;;
 remove) cmd_remove "$2" ;;
-run) cmd_run "${@:2}" ;;
+run) shift; cmd_run "$@" ;;
 update) cmd_update ;;
 *)
   echo "Unknown command: $1"
